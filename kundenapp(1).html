@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fotoapp-Benchmark">
+<meta name="theme-color" content="#0f1117">
+<title>Fotoapp-Benchmark</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap');
+  :root {
+    --bg:#0f1117; --surface:#181c27; --surface2:#1e2333; --border:#2a3050;
+    --accent:#3d7fff; --accent2:#00e5a0; --danger:#ff4d6d;
+    --text:#e8eaf2; --muted:#6b7399; --radius:16px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow:hidden}
+
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;overflow:hidden;opacity:0;pointer-events:none;transition:opacity .35s ease,transform .35s ease;transform:translateY(24px)}
+  .screen.active{opacity:1;pointer-events:all;transform:translateY(0)}
+
+  header{padding:env(safe-area-inset-top,48px) 24px 20px;background:linear-gradient(180deg,var(--bg) 0%,transparent 100%);position:relative;z-index:10;display:flex;align-items:center;gap:14px}
+  .logo{font-size:22px;font-weight:800;letter-spacing:-.5px}
+  .logo span{color:var(--accent)}
+  .back-btn{width:38px;height:38px;border-radius:50%;border:1px solid var(--border);background:var(--surface);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0}
+  .back-btn svg{width:18px;height:18px;stroke:var(--text);fill:none;stroke-width:2}
+
+  /* SETUP */
+  #setupScreen{align-items:center;justify-content:center;padding:32px 28px}
+  .setup-card{width:100%;max-width:400px;text-align:center}
+  .setup-icon{width:72px;height:72px;border-radius:20px;background:var(--surface);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;margin:0 auto 28px}
+  .setup-card h1{font-size:30px;font-weight:800;letter-spacing:-1px;margin-bottom:10px}
+  .setup-card h1 span{color:var(--accent)}
+  .setup-card .subtitle{color:var(--muted);font-size:14px;line-height:1.65;margin-bottom:32px}
+  .step-list{display:flex;flex-direction:column;gap:14px;margin-bottom:28px;text-align:left}
+  .step-item{display:flex;gap:14px;align-items:flex-start}
+  .step-num{width:28px;height:28px;border-radius:50%;background:var(--accent);color:white;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px}
+  .step-text strong{font-size:15px;font-weight:700;display:block;margin-bottom:2px}
+  .step-text span{font-size:13px;color:var(--muted);line-height:1.5}
+  .ms-btn{width:100%;padding:17px 24px;background:#0078d4;border:none;border-radius:13px;color:white;font-family:'Syne',sans-serif;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:12px;transition:all .2s}
+  .ms-btn:active{opacity:.88;transform:scale(.98)}
+  .ms-btn svg{width:22px;height:22px;flex-shrink:0}
+  .auth-note{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-top:14px;font-size:13px;color:var(--muted);line-height:1.6;text-align:center}
+  .auth-note strong{color:var(--text)}
+
+  /* HOME */
+  #homeScreen{padding-bottom:env(safe-area-inset-bottom,20px)}
+  #homeScreen header{padding-bottom:12px}
+  .home-content{flex:1;overflow-y:auto;padding:8px 20px 24px;-webkit-overflow-scrolling:touch}
+  .folder-pill{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:flex;align-items:center;gap:10px;margin-bottom:20px;cursor:pointer}
+  .folder-pill svg{width:16px;height:16px;stroke:var(--accent);fill:none;stroke-width:1.5;flex-shrink:0}
+  .fp-text{flex:1;min-width:0}
+  .fp-label{font-family:'DM Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+  .fp-name{font-family:'DM Mono',monospace;font-size:12px;color:var(--accent2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:2px}
+  .fp-change{font-size:11px;color:var(--muted);flex-shrink:0}
+  .section-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent2);letter-spacing:2px;text-transform:uppercase;margin-bottom:14px}
+  .new-card{background:linear-gradient(135deg,var(--accent) 0%,#1a56ff 100%);border-radius:var(--radius);padding:24px;cursor:pointer;transition:transform .2s;position:relative;overflow:hidden}
+  .new-card::before{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,.08)}
+  .new-card:active{transform:scale(.98)}
+  .new-card h2{font-size:20px;font-weight:800;margin-bottom:6px}
+  .new-card p{font-size:13px;opacity:.8}
+  .new-card .plus{font-size:40px;font-weight:300;opacity:.6;position:absolute;right:24px;top:50%;transform:translateY(-50%)}
+  .sessions-list{display:flex;flex-direction:column;gap:10px;margin-top:16px}
+  .session-item{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px;cursor:pointer}
+  .session-item:active{border-color:var(--accent)}
+  .si-icon{width:44px;height:44px;border-radius:10px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .si-icon svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:1.5}
+  .si-info{flex:1;min-width:0}
+  .si-name{font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .si-meta{font-size:12px;color:var(--muted);margin-top:3px;font-family:'DM Mono',monospace}
+  .si-status{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+  .badge{font-size:11px;font-family:'DM Mono',monospace;padding:3px 8px;border-radius:20px}
+  .badge.ok{background:rgba(0,229,160,.12);color:var(--accent2)}
+  .badge.pending{background:rgba(255,165,0,.12);color:#ffa500}
+  .si-count{font-size:12px;color:var(--muted)}
+  .empty-state{text-align:center;padding:40px 24px;color:var(--muted)}
+  .empty-state svg{width:44px;height:44px;opacity:.25;margin:0 auto 14px;stroke:var(--muted);fill:none;stroke-width:1;display:block}
+  .empty-state p{font-size:14px;line-height:1.6}
+
+  /* NEW SESSION */
+  .form-content{flex:1;overflow-y:auto;padding:8px 20px 32px}
+  .field-group{margin-bottom:20px}
+  .field-label{font-size:12px;font-family:'DM Mono',monospace;color:var(--accent2);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px}
+  .field-input{width:100%;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:15px 16px;color:var(--text);font-family:'Syne',sans-serif;font-size:16px;font-weight:600;outline:none;transition:border-color .2s;-webkit-appearance:none}
+  .field-input:focus{border-color:var(--accent)}
+  .field-input::placeholder{color:var(--muted);font-weight:400}
+  .date-display{background:var(--surface);border:1.5px solid var(--border);border-radius:12px;padding:15px 16px;font-family:'DM Mono',monospace;font-size:14px;color:var(--muted);display:flex;align-items:center;gap:10px}
+  .date-display svg{width:18px;height:18px;stroke:var(--accent);fill:none;stroke-width:1.5;flex-shrink:0}
+  .folder-preview{background:var(--surface2);border:1px dashed var(--border);border-radius:12px;padding:16px;display:flex;align-items:center;gap:12px}
+  .folder-preview svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:1.5;flex-shrink:0}
+  .folder-fname{font-family:'DM Mono',monospace;font-size:13px;color:var(--accent);word-break:break-all}
+  .start-btn{width:100%;padding:18px;background:var(--accent);border:none;border-radius:14px;color:white;font-family:'Syne',sans-serif;font-size:17px;font-weight:800;cursor:pointer;letter-spacing:-.3px;transition:all .2s;margin-top:8px}
+  .start-btn:active{transform:scale(.98);opacity:.9}
+  .start-btn:disabled{opacity:.4;cursor:not-allowed;transform:none}
+
+  /* CAPTURE */
+  .session-hdr{padding:0 20px 12px;border-bottom:1px solid var(--border)}
+  .session-hdr .sname{font-size:18px;font-weight:800}
+  .session-hdr .sfolder{font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .media-grid{flex:1;overflow-y:auto;padding:16px 20px;-webkit-overflow-scrolling:touch}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .thumb{aspect-ratio:1;border-radius:8px;overflow:hidden;position:relative;background:var(--surface2)}
+  .thumb img,.thumb video{width:100%;height:100%;object-fit:cover;display:block}
+  .thumb .rm{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:50%;background:rgba(0,0,0,.7);border:none;color:white;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;line-height:1}
+  .thumb .tbadge{position:absolute;bottom:4px;left:4px;background:rgba(0,0,0,.65);border-radius:4px;padding:2px 5px;font-size:9px;font-family:'DM Mono',monospace;color:#fff}
+  .thumb .sicon{position:absolute;top:4px;left:4px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700}
+  .thumb .sicon.ok{background:var(--accent2);color:#000}
+  .thumb .sicon.pending{background:rgba(255,165,0,.9);color:#000}
+  .thumb .sicon.uploading{background:var(--accent);color:white}
+  .capture-bar{padding:16px 20px env(safe-area-inset-bottom,16px);border-top:1px solid var(--border);background:var(--bg);display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .cap-btn{flex:1;padding:14px 8px;border-radius:12px;border:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:all .2s}
+  .cap-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;flex-shrink:0}
+  .cap-btn.photo{background:var(--surface2);border:1.5px solid var(--border);color:var(--text)}
+  .cap-btn.video{background:var(--surface2);border:1.5px solid var(--border);color:var(--danger)}
+  .upload-btn{flex:1.3;padding:14px 8px;border-radius:12px;border:none;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;background:var(--accent);color:white;transition:all .2s}
+  .upload-btn:active{opacity:.85}
+  .upload-btn:disabled{opacity:.4;cursor:not-allowed}
+  .upload-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2}
+  .cpill{background:rgba(255,255,255,.25);color:white;border-radius:20px;padding:1px 7px;font-size:12px;font-weight:700}
+  .prog-bar{height:3px;background:var(--border);overflow:hidden;flex-shrink:0;display:none}
+  .prog-bar .fill{height:100%;background:var(--accent);transition:width .3s}
+  .prog-txt{font-family:'DM Mono',monospace;font-size:11px;color:var(--accent);padding:5px 20px;text-align:center;min-height:22px;flex-shrink:0}
+
+  .toast{position:fixed;bottom:calc(env(safe-area-inset-bottom,20px) + 110px);left:50%;transform:translateX(-50%) translateY(20px);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 18px;font-size:13px;white-space:nowrap;opacity:0;pointer-events:none;transition:all .3s;z-index:999;font-family:'DM Mono',monospace}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast.success{border-color:var(--accent2);color:var(--accent2)}
+  .toast.error{border-color:var(--danger);color:var(--danger)}
+
+  #fileInput,#videoInput{display:none}
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  .spin{animation:spin .9s linear infinite}
+  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div class="screen active" id="setupScreen">
+  <div class="setup-card">
+    <div class="setup-icon">
+      <svg width="40" height="40" viewBox="0 0 40 40"><rect x="2" y="2" width="16" height="16" rx="2" fill="#f25022"/><rect x="22" y="2" width="16" height="16" rx="2" fill="#7fba00"/><rect x="2" y="22" width="16" height="16" rx="2" fill="#00a4ef"/><rect x="22" y="22" width="16" height="16" rx="2" fill="#ffb900"/></svg>
+    </div>
+    <h1>Fotoapp-<span>Benchmark</span></h1>
+    <p class="subtitle">Fotos & Videos aufnehmen und direkt in OneDrive speichern – ganz ohne Azure-Konto.</p>
+    <div class="step-list">
+      <div class="step-item"><div class="step-num">1</div><div class="step-text"><strong>Microsoft anmelden</strong><span>Klicken Sie unten – ein Popup öffnet sich zur Anmeldung.</span></div></div>
+      <div class="step-item"><div class="step-num">2</div><div class="step-text"><strong>Basis-Ordner benennen</strong><span>Der Ordner in OneDrive, in dem Kundenordner erstellt werden.</span></div></div>
+      <div class="step-item"><div class="step-num">3</div><div class="step-text"><strong>Loslegen</strong><span>Fotos & Videos werden automatisch hochgeladen.</span></div></div>
+    </div>
+    <button class="ms-btn" onclick="connectOneDrive()">
+      <svg width="22" height="22" viewBox="0 0 22 22"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="12" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="12" width="9" height="9" fill="#00a4ef"/><rect x="12" y="12" width="9" height="9" fill="#ffb900"/></svg>
+      Mit Microsoft anmelden
+    </button>
+    <div class="auth-note"><strong>Kein Azure-Konto nötig.</strong><br>Funktioniert mit jedem Microsoft- oder Firmenkonto (z. B. @outlook.com oder @alphacam.de).</div>
+  </div>
+</div>
+
+<!-- HOME -->
+<div class="screen" id="homeScreen">
+  <header><div class="logo">Fotoapp-<span>Benchmark</span></div></header>
+  <div class="home-content">
+    <div class="folder-pill" onclick="changeBaseFolder()">
+      <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <div class="fp-text">
+        <div class="fp-label">Basis-Ordner (OneDrive)</div>
+        <div class="fp-name" id="baseFolderPill">–</div>
+      </div>
+      <div class="fp-change">Ändern</div>
+    </div>
+    <div class="new-card" onclick="showNewSession()">
+      <h2>Neue Sitzung</h2>
+      <p>Kunde erfassen &amp; Medien aufnehmen</p>
+      <div class="plus">+</div>
+    </div>
+    <div class="section-label" style="margin-top:24px">Letzte Sitzungen</div>
+    <div class="sessions-list" id="sessionsList"></div>
+  </div>
+</div>
+
+<!-- NEW SESSION -->
+<div class="screen" id="newSessionScreen">
+  <header>
+    <div class="back-btn" onclick="showHome()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <div class="logo">Fotoapp-<span>Benchmark</span></div>
+  </header>
+  <div class="form-content">
+    <div class="field-group">
+      <div class="field-label">Kundenname</div>
+      <input class="field-input" id="customerNameInput" type="text" placeholder="z. B. Müller GmbH" autocomplete="off" spellcheck="false" oninput="updateFolderPreview()">
+    </div>
+    <div class="field-group">
+      <div class="field-label">Datum</div>
+      <div class="date-display">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <span id="dateDisplay">–</span>
+      </div>
+    </div>
+    <div class="field-group">
+      <div class="field-label">Neuer OneDrive-Ordner</div>
+      <div class="folder-preview">
+        <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <div class="folder-fname" id="folderPreview">Bitte Kundennamen eingeben</div>
+      </div>
+    </div>
+    <button class="start-btn" id="startBtn" disabled onclick="startSession()">Sitzung starten →</button>
+  </div>
+</div>
+
+<!-- CAPTURE -->
+<div class="screen" id="captureScreen">
+  <header>
+    <div class="back-btn" onclick="finishSession()"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
+    <div class="logo">Fotoapp-<span>Benchmark</span></div>
+  </header>
+  <div class="session-hdr">
+    <div class="sname" id="captureCustomerName"></div>
+    <div class="sfolder" id="captureFolderName"></div>
+  </div>
+  <div class="prog-bar" id="progressBar"><div class="fill" id="progressFill" style="width:0%"></div></div>
+  <div class="prog-txt" id="uploadStatusText"></div>
+  <div class="media-grid">
+    <div class="grid" id="mediaGrid"></div>
+    <div class="empty-state" id="emptyCapture">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <p>Noch keine Fotos oder Videos.<br>Tippen Sie unten, um zu beginnen.</p>
+    </div>
+  </div>
+  <div class="capture-bar">
+    <button class="cap-btn photo" onclick="capturePhoto()">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Foto
+    </button>
+    <button class="cap-btn video" onclick="captureVideo()">
+      <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Video
+    </button>
+    <button class="upload-btn" id="uploadBtn" onclick="uploadAll()" disabled>
+      <svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+      Upload <span class="cpill" id="uploadCount">0</span>
+    </button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<input id="fileInput" type="file" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+<input id="videoInput" type="file" accept="video/*" capture="environment" onchange="handleVideo(event)">
+
+<script>
+// ══════════════════════════════════════════
+//  Fotoapp-Benchmark – OneDrive via implicit popup
+// ══════════════════════════════════════════
+// Uses Microsoft's public "OneDrive Web App" client id
+// which supports implicit flow for personal & work accounts
+// without requiring an Azure app registration.
+const CLIENT_ID = '4f49e3d5-c995-4a98-8af6-1c8b1e7cbc87';
+const SCOPE = 'https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read';
+
+let accessToken = localStorage.getItem('kd_token') || null;
+let baseFolderPath = localStorage.getItem('kd_basePath') || null;
+let currentSession = null;
+let mediaItems = [];
+let sessions = JSON.parse(localStorage.getItem('kd_sessions') || '[]');
+
+// ── AUTH ──
+function connectOneDrive() {
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    scope: SCOPE + ' openid',
+    response_type: 'token',
+    redirect_uri: 'https://login.microsoftonline.com/common/oauth2/nativeclient',
+    response_mode: 'fragment',
+    prompt: 'select_account'
+  });
+  const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+  const popup = window.open(url, 'msauth', 'width=500,height=660,left=60,top=60');
+  if (!popup) { showToast('Bitte Popup-Blocker deaktivieren!', 'error'); return; }
+
+  const poll = setInterval(() => {
+    try {
+      const h = popup.location.href || '';
+      if (h.includes('access_token=') || h.includes('error=')) {
+        clearInterval(poll);
+        const frag = h.includes('#') ? h.split('#')[1] : h.split('?')[1] || '';
+        const p = new URLSearchParams(frag);
+        if (p.get('error')) { popup.close(); showToast('Anmeldung fehlgeschlagen', 'error'); return; }
+        accessToken = p.get('access_token');
+        localStorage.setItem('kd_token', accessToken);
+        popup.close();
+        afterAuth();
+      }
+    } catch(e) { /* cross-origin – keep polling */ }
+    if (popup.closed) clearInterval(poll);
+  }, 500);
+}
+
+async function afterAuth() {
+  if (!baseFolderPath) {
+    const name = prompt('In welchem OneDrive-Ordner sollen Kundenordner erstellt werden?\n\nBeliebigen Namen eingeben (Ordner wird automatisch erstellt):',  'Kunden');
+    if (!name) { showToast('Bitte einen Ordnernamen eingeben.', 'error'); return; }
+    baseFolderPath = name.trim();
+    localStorage.setItem('kd_basePath', baseFolderPath);
+    await ensureFolder(baseFolderPath);
+  }
+  document.getElementById('baseFolderPill').textContent = baseFolderPath;
+  renderSessions();
+  showScreen('homeScreen');
+}
+
+// ── NAV ──
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function showHome() { renderSessions(); showScreen('homeScreen'); }
+function showNewSession() {
+  document.getElementById('dateDisplay').textContent = fmtDate(new Date());
+  document.getElementById('customerNameInput').value = '';
+  document.getElementById('folderPreview').textContent = 'Bitte Kundennamen eingeben';
+  document.getElementById('startBtn').disabled = true;
+  showScreen('newSessionScreen');
+  setTimeout(() => document.getElementById('customerNameInput').focus(), 400);
+}
+function changeBaseFolder() {
+  const n = prompt('Neuen Basis-Ordner eingeben:', baseFolderPath || 'Kunden');
+  if (!n) return;
+  baseFolderPath = n.trim();
+  localStorage.setItem('kd_basePath', baseFolderPath);
+  document.getElementById('baseFolderPill').textContent = baseFolderPath;
+  ensureFolder(baseFolderPath).then(() => showToast('Ordner gespeichert ✓', 'success'));
+}
+
+// ── DATE ──
+function fmtDate(d) { return d.toLocaleDateString('de-DE', {day:'2-digit',month:'2-digit',year:'numeric'}); }
+function fmtDateF(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+// ── NEW SESSION ──
+function updateFolderPreview() {
+  const n = document.getElementById('customerNameInput').value.trim();
+  document.getElementById('startBtn').disabled = !n;
+  document.getElementById('folderPreview').textContent = n
+    ? `${baseFolderPath} / ${n}_${fmtDateF(new Date())}`
+    : 'Bitte Kundennamen eingeben';
+}
+function startSession() {
+  const n = document.getElementById('customerNameInput').value.trim();
+  if (!n) return;
+  const s = { id: Date.now().toString(), customerName: n, folderName: `${n}_${fmtDateF(new Date())}`, createdAt: new Date().toISOString(), mediaCount: 0, status: 'pending' };
+  sessions.unshift(s);
+  saveSessions();
+  showCapture(s);
+}
+function showCapture(s) {
+  currentSession = s;
+  mediaItems = [];
+  document.getElementById('captureCustomerName').textContent = s.customerName;
+  document.getElementById('captureFolderName').textContent = `OneDrive / ${baseFolderPath} / ${s.folderName}`;
+  renderGrid();
+  showScreen('captureScreen');
+}
+function finishSession() {
+  const p = mediaItems.filter(m => m.status === 'pending').length;
+  if (p > 0 && !confirm(`${p} Datei(en) noch nicht hochgeladen. Trotzdem zurück?`)) return;
+  showHome();
+}
+
+// ── SESSIONS ──
+function saveSessions() { localStorage.setItem('kd_sessions', JSON.stringify(sessions)); }
+function renderSessions() {
+  const list = document.getElementById('sessionsList');
+  if (!sessions.length) {
+    list.innerHTML = `<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg><p>Noch keine Sitzungen.<br>Erstellen Sie Ihre erste Sitzung.</p></div>`;
+    return;
+  }
+  list.innerHTML = sessions.slice(0,15).map(s => `
+    <div class="session-item" onclick="openSession('${s.id}')">
+      <div class="si-icon"><svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg></div>
+      <div class="si-info"><div class="si-name">${esc(s.customerName)}</div><div class="si-meta">${esc(s.folderName)}</div></div>
+      <div class="si-status">
+        <span class="badge ${s.status==='uploaded'?'ok':'pending'}">${s.status==='uploaded'?'✓ Hochgeladen':'○ Ausstehend'}</span>
+        <span class="si-count">${s.mediaCount} Datei(en)</span>
+      </div>
+    </div>`).join('');
+}
+function openSession(id) { const s = sessions.find(x=>x.id===id); if(s) showCapture(s); }
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── CAPTURE ──
+function capturePhoto() { document.getElementById('fileInput').click(); }
+function captureVideo() { document.getElementById('videoInput').click(); }
+function handlePhoto(e) { const f=e.target.files[0]; if(!f) return; addItem(f,'photo'); e.target.value=''; }
+function handleVideo(e) { const f=e.target.files[0]; if(!f) return; addItem(f,'video'); e.target.value=''; }
+function addItem(file, type) {
+  const url = URL.createObjectURL(file);
+  const ext = file.name.split('.').pop() || (type==='photo'?'jpg':'mp4');
+  const item = { id: Date.now()+'_'+Math.random(), file, blob:file, url, type, status:'pending', ext };
+  mediaItems.push(item);
+  renderGrid(); updateUploadBtn();
+  if (accessToken) autoUpload(item);
+}
+function removeItem(id) { mediaItems=mediaItems.filter(m=>m.id!==id); renderGrid(); updateUploadBtn(); }
+
+// ── GRID ──
+function renderGrid() {
+  const g = document.getElementById('mediaGrid');
+  document.getElementById('emptyCapture').style.display = mediaItems.length ? 'none' : '';
+  g.innerHTML = mediaItems.map(it => {
+    const si = it.status==='uploaded' ? `<div class="sicon ok">✓</div>`
+      : it.status==='uploading' ? `<div class="sicon uploading spin">↑</div>`
+      : `<div class="sicon pending">○</div>`;
+    const media = it.type==='photo' ? `<img src="${it.url}" loading="lazy">` : `<video src="${it.url}" muted playsinline></video>`;
+    const rm = it.status!=='uploaded' ? `<button class="rm" onclick="removeItem('${it.id}')">×</button>` : '';
+    return `<div class="thumb">${media}${si}<span class="tbadge">${it.type==='photo'?'📷':'🎥'}</span>${rm}</div>`;
+  }).join('');
+}
+function updateUploadBtn() {
+  document.getElementById('uploadBtn').disabled = !mediaItems.some(m=>m.status==='pending');
+  document.getElementById('uploadCount').textContent = mediaItems.length;
+}
+
+// ── GRAPH ──
+const ah = () => ({ Authorization: `Bearer ${accessToken}` });
+async function ensureFolder(path) {
+  const parts = path.split('/').filter(Boolean);
+  let cur = '';
+  for (const p of parts) {
+    const url = cur
+      ? `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(cur)}:/children`
+      : `https://graph.microsoft.com/v1.0/me/drive/root/children`;
+    await fetch(url, { method:'POST', headers:{...ah(),'Content-Type':'application/json'}, body: JSON.stringify({name:p,folder:{}, '@microsoft.graph.conflictBehavior':'rename'}) });
+    cur = cur ? `${cur}/${p}` : p;
+  }
+}
+async function uploadFile(item) {
+  const path = `${baseFolderPath}/${currentSession.folderName}`;
+  const fname = `${item.type==='photo'?'Foto':'Video'}_${Date.now()}.${item.ext}`;
+  const full = `${path}/${fname}`;
+  if (item.blob.size < 4*1024*1024) {
+    const r = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(full)}:/content`, {
+      method:'PUT', headers:{...ah(),'Content-Type':item.blob.type||'application/octet-stream'}, body:item.blob
+    });
+    if (!r.ok) { const e=await r.json(); throw new Error(e.error?.message||'Upload fehlgeschlagen'); }
+  } else {
+    const sr = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(full)}:/createUploadSession`, {
+      method:'POST', headers:{...ah(),'Content-Type':'application/json'}, body:JSON.stringify({item:{'@microsoft.graph.conflictBehavior':'rename'}})
+    });
+    const {uploadUrl} = await sr.json();
+    const cs = 3*1024*1024; let off=0;
+    while (off < item.blob.size) {
+      const chunk = item.blob.slice(off, off+cs);
+      const end = Math.min(off+cs-1, item.blob.size-1);
+      await fetch(uploadUrl, {method:'PUT', headers:{'Content-Length':chunk.size,'Content-Range':`bytes ${off}-${end}/${item.blob.size}`}, body:chunk});
+      off+=cs;
+    }
+  }
+}
+async function autoUpload(item) {
+  item.status='uploading'; renderGrid();
+  try {
+    await ensureFolder(`${baseFolderPath}/${currentSession.folderName}`);
+    await uploadFile(item);
+    item.status='uploaded'; syncSession();
+  } catch(e) { item.status='pending'; showToast('Upload fehlgeschlagen: '+e.message,'error'); }
+  renderGrid(); updateUploadBtn();
+}
+async function uploadAll() {
+  if (!accessToken) { showToast('Bitte zuerst anmelden','error'); return; }
+  const pending = mediaItems.filter(m=>m.status==='pending');
+  if (!pending.length) return;
+  document.getElementById('progressBar').style.display='';
+  let done=0;
+  for (const item of pending) {
+    document.getElementById('uploadStatusText').textContent=`↑ ${done+1} / ${pending.length} wird hochgeladen …`;
+    document.getElementById('progressFill').style.width=`${(done/pending.length)*100}%`;
+    item.status='uploading'; renderGrid();
+    try { await ensureFolder(`${baseFolderPath}/${currentSession.folderName}`); await uploadFile(item); item.status='uploaded'; }
+    catch(e) { item.status='pending'; showToast('Fehler: '+e.message,'error'); }
+    done++; renderGrid();
+  }
+  document.getElementById('progressFill').style.width='100%';
+  document.getElementById('uploadStatusText').textContent='';
+  setTimeout(()=>document.getElementById('progressBar').style.display='none',800);
+  syncSession(); updateUploadBtn();
+  showToast(`${mediaItems.filter(m=>m.status==='uploaded').length} Datei(en) hochgeladen ✓`,'success');
+}
+function syncSession() {
+  const s=sessions.find(x=>x.id===currentSession.id);
+  if(s){s.mediaCount=mediaItems.filter(m=>m.status==='uploaded').length;s.status=mediaItems.every(m=>m.status==='uploaded')?'uploaded':'pending';saveSessions();}
+}
+
+// ── TOAST ──
+let tt;
+function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(type?' '+type:'');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),3200);}
+
+// ── INIT ──
+(function(){
+  if(accessToken && baseFolderPath){
+    document.getElementById('baseFolderPill').textContent=baseFolderPath;
+    renderSessions(); showScreen('homeScreen');
+  }
+})();
+</script>
+</body>
+</html>
