@@ -248,13 +248,11 @@
 
 <script>
 // ══════════════════════════════════════════
-//  Fotoapp-Benchmark – OneDrive via implicit popup
+//  Fotoapp-Benchmark – OneDrive via Redirect (iOS Safari kompatibel)
 // ══════════════════════════════════════════
-// Uses Microsoft's public "OneDrive Web App" client id
-// which supports implicit flow for personal & work accounts
-// without requiring an Azure app registration.
 const CLIENT_ID = '4f49e3d5-c995-4a98-8af6-1c8b1e7cbc87';
-const SCOPE = 'https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read';
+const SCOPE = 'https://graph.microsoft.com/Files.ReadWrite https://graph.microsoft.com/User.Read openid';
+const REDIRECT_URI = window.location.href.split('#')[0].split('?')[0];
 
 let accessToken = localStorage.getItem('kd_token') || null;
 let baseFolderPath = localStorage.getItem('kd_basePath') || null;
@@ -262,41 +260,39 @@ let currentSession = null;
 let mediaItems = [];
 let sessions = JSON.parse(localStorage.getItem('kd_sessions') || '[]');
 
-// ── AUTH ──
+// ── AUTH: Redirect (kein Popup – funktioniert in iOS Safari) ──
 function connectOneDrive() {
+  // Speichere aktuelle Seite damit wir nach Login zurückkehren
+  sessionStorage.setItem('auth_pending', '1');
   const params = new URLSearchParams({
     client_id: CLIENT_ID,
-    scope: SCOPE + ' openid',
+    scope: SCOPE,
     response_type: 'token',
-    redirect_uri: 'https://login.microsoftonline.com/common/oauth2/nativeclient',
+    redirect_uri: REDIRECT_URI,
     response_mode: 'fragment',
     prompt: 'select_account'
   });
-  const url = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
-  const popup = window.open(url, 'msauth', 'width=500,height=660,left=60,top=60');
-  if (!popup) { showToast('Bitte Popup-Blocker deaktivieren!', 'error'); return; }
+  // Direkte Weiterleitung – kein Popup nötig
+  window.location.href = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?${params}`;
+}
 
-  const poll = setInterval(() => {
-    try {
-      const h = popup.location.href || '';
-      if (h.includes('access_token=') || h.includes('error=')) {
-        clearInterval(poll);
-        const frag = h.includes('#') ? h.split('#')[1] : h.split('?')[1] || '';
-        const p = new URLSearchParams(frag);
-        if (p.get('error')) { popup.close(); showToast('Anmeldung fehlgeschlagen', 'error'); return; }
-        accessToken = p.get('access_token');
-        localStorage.setItem('kd_token', accessToken);
-        popup.close();
-        afterAuth();
-      }
-    } catch(e) { /* cross-origin – keep polling */ }
-    if (popup.closed) clearInterval(poll);
-  }, 500);
+// Prüfe ob wir nach einem Login-Redirect zurückgekehrt sind
+function checkAuthRedirect() {
+  const hash = window.location.hash;
+  if (!hash) return false;
+  const p = new URLSearchParams(hash.replace('#', ''));
+  const token = p.get('access_token');
+  if (!token) return false;
+  // Token aus URL entfernen (sauber halten)
+  window.history.replaceState({}, document.title, window.location.pathname);
+  accessToken = token;
+  localStorage.setItem('kd_token', token);
+  return true;
 }
 
 async function afterAuth() {
   if (!baseFolderPath) {
-    const name = prompt('In welchem OneDrive-Ordner sollen Kundenordner erstellt werden?\n\nBeliebigen Namen eingeben (Ordner wird automatisch erstellt):',  'Kunden');
+    const name = prompt('In welchem OneDrive-Ordner sollen Kundenordner erstellt werden?\n\nBeliebigen Namen eingeben (Ordner wird automatisch erstellt):', 'Kunden');
     if (!name) { showToast('Bitte einen Ordnernamen eingeben.', 'error'); return; }
     baseFolderPath = name.trim();
     localStorage.setItem('kd_basePath', baseFolderPath);
@@ -493,9 +489,11 @@ let tt;
 function showToast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(type?' '+type:'');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('show'),3200);}
 
 // ── INIT ──
-(function(){
-  if(accessToken && baseFolderPath){
-    document.getElementById('baseFolderPill').textContent=baseFolderPath;
+(async function(){
+  const fromRedirect = checkAuthRedirect();
+  if (fromRedirect) { await afterAuth(); return; }
+  if (accessToken && baseFolderPath) {
+    document.getElementById('baseFolderPill').textContent = baseFolderPath;
     renderSessions(); showScreen('homeScreen');
   }
 })();
